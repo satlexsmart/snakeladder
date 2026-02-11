@@ -1,34 +1,40 @@
-name: Build APK
+name: Build APK (Ubuntu 24.04)
 on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Fix Missing libtinfo5 (Ubuntu 24.04 Fix)
-        run: |
-          # Download the library from the official Ubuntu mirrors
-          wget http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.4-2_amd64.deb
-          sudo dpkg -i libtinfo5_6.4-2_amd64.deb
-          rm libtinfo5_6.4-2_amd64.deb
-
-      - name: Install Buildozer dependencies
+      - name: Install Noble Numbat Dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev libncursesw5-dev cmake libffi-dev libssl-dev
-          pip3 install --user --upgrade buildozer cython virtualenv
+          # Using the official Ubuntu 24.04 dependency list for Buildozer
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip python3-virtualenv \
+          autoconf libtool pkg-config zlib1g-dev libncurses-dev libncursesw5-dev \
+          libtinfo6 cmake libffi-dev libssl-dev automake autopoint gettext
+
+      - name: Fix Legacy Library Requirement
+        run: |
+          # Buildozer often looks for libtinfo.so.5. 
+          # On 24.04, we symlink the new version (6) so Buildozer stays happy.
+          sudo ln -s /lib/x86_64-linux-gnu/libtinfo.so.6 /lib/x86_64-linux-gnu/libtinfo.so.5
+
+      - name: Install Buildozer
+        run: |
+          # Ubuntu 24.04 requires --break-system-packages if not using a venv in CI
+          pip3 install --user --upgrade buildozer cython virtualenv --break-system-packages
 
       - name: Build APK
         run: |
-          # The logic to build the file
+          # Use 'yes' to auto-accept Android licenses
           yes | /home/runner/.local/bin/buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: snakeladder-apk
+          name: snake-ladder-noble-apk
           path: bin/*.apk
